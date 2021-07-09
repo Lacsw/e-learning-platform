@@ -1,17 +1,19 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic.edit import CreateView, UpdateView, \
-                                      DeleteView
+    DeleteView
 from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, \
-                                       PermissionRequiredMixin
+    PermissionRequiredMixin
 from django.views.generic.base import TemplateResponseMixin, View
+from django.views.generic.detail import DetailView
 from django.forms.models import modelform_factory
 from django.apps import apps
+from django.db.models import Count
 
 from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
 
-from .models import Course, Module, Content
+from .models import Course, Module, Content, Subject
 from .forms import ModuleFormSet
 
 
@@ -64,13 +66,13 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
     def get_formset(self, data=None):
         return ModuleFormSet(instance=self.course,
                              data=data)
-                            
+
     def dispatch(self, request, pk):
         self.course = get_object_or_404(Course,
                                         id=pk,
                                         owner=request.user)
         return super().dispatch(request, pk)
-    
+
     def get(self, request, *args, **kwargs):
         formset = self.get_formset()
         return self.render_to_response({'course': self.course,
@@ -84,7 +86,10 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
         return self.render_to_response({'course': self.course,
                                         'formset': formset})
 
+
 """Добавление/редактирование нового контента(текст, видео, картинка, файл) в модуль"""
+
+
 class ContentCreateUpdateView(TemplateResponseMixin, View):
     module = None
     model = None
@@ -101,9 +106,9 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
     # Создание динамической формы с помощью modelform_factory
     def get_form(self, model, *args, **kwargs):
         Form = modelform_factory(model, exclude=['owner',
-                                                'order',
-                                                'created',
-                                                'updated'])
+                                                 'order',
+                                                 'created',
+                                                 'updated'])
         return Form(*args, **kwargs)
 
     # Получение  параметров с URL и сохранение соответвующий в качестве атрибута класса
@@ -114,8 +119,8 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
         self.model = self.get_model(model_name)
         if id:
             self.obj = get_object_or_404(self.model,
-                                        id=id,
-                                        owner=request.user)
+                                         id=id,
+                                         owner=request.user)
         return super().dispatch(request, module_id, model_name, id)
 
     # При GET-запросе, создает форму модели
@@ -128,9 +133,9 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
     # Проверяет валидацию и устанавливает owner=user, сохраняет объект.
     def post(self, request, module_id, model_name, id=None):
         form = self.get_form(self.model,
-                            instance=self.obj,
-                            data=request.POST,
-                            files=request.FILES)
+                             instance=self.obj,
+                             data=request.POST,
+                             files=request.FILES)
         if form.is_valid():
             obj = form.save(commit=False)
             obj.owner = request.user
@@ -143,7 +148,10 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
         return self.render_to_response({'form': form,
                                         'object': self.obj})
 
+
 """Удаляет контент и объект контента"""
+
+
 class ContentDeleteView(View):
 
     def post(self, request, id):
@@ -156,7 +164,10 @@ class ContentDeleteView(View):
 
         return redirect('module_content_list', module.id)
 
+
 """Проучает обект модуля с id и отображает шаблон"""
+
+
 class ModuleContentListView(TemplateResponseMixin, View):
     template_name = 'courses/manage/module/content_list.html'
 
@@ -167,23 +178,53 @@ class ModuleContentListView(TemplateResponseMixin, View):
 
         return self.render_to_response({'module': module})
 
+
 """Позволяет изменять порядок модулей"""
+
+
 class ModuleOrderView(CsrfExemptMixin,
-                         JsonRequestResponseMixin,
-                         View):
-       def post(self, request):
-           for id, order in self.request_json.items():
-               Module.objects.filter(id=id,
-                      course__owner=request.user).update(order=order)
-           return self.render_json_response({'saved': 'OK'})
+                      JsonRequestResponseMixin,
+                      View):
+    def post(self, request):
+        for id, order in self.request_json.items():
+            Module.objects.filter(id=id,
+                                  course__owner=request.user).update(order=order)
+        return self.render_json_response({'saved': 'OK'})
 
 
 """Позволяет измеянять порядок контента в модулях"""
+
+
 class ContentOrderView(CsrfExemptMixin,
-                         JsonRequestResponseMixin,
-                         View):
+                       JsonRequestResponseMixin,
+                       View):
     def post(self, request):
         for id, order in self.request_json.items():
             Content.objects.filter(id=id,
-                          module__course__owner=request.user).update(order=order)
+                                   module__course__owner=request.user).update(order=order)
         return self.render_json_response({'saved': 'OK'})
+
+
+"""Получение и подсчет всех курсов, предметов и рендер их"""
+
+
+class CourseListView(TemplateResponseMixin, View):
+    model = Course
+    template_name = 'courses/course/list.html'
+
+    def get(self, request, subject=None):
+        subjects = Subject.objects.annotate(
+            total_courses=Count('courses'))
+        courses = Course.objects.annotate(
+            total_modules=Count('modules'))
+        if subject:
+            subject = get_object_or_404(Subject, slug=subject)
+            courses = courses.filter(subject=subject)
+        return self.render_to_response({'subjects': subjects,
+                                        'subject': subject,
+                                        'courses': courses})
+
+
+class CourseDetailView(DetailView):
+    model = Course
+    template_name = 'courses/course/detail.html'
