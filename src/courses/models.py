@@ -12,28 +12,33 @@ class Subject(models.Model):
 
     class Meta:
         ordering = ['title']
-    
+
     def __str__(self):
         return self.title
+
 
 class Course(models.Model):
     owner = models.ForeignKey(User,
                               related_name='courses_created',
                               on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject,
-                              related_name='courses',
-                              on_delete=models.CASCADE)
+                                related_name='courses',
+                                on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     overview = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
+    students = models.ManyToManyField(User,
+                                      related_name='coursers_joined',
+                                      blank=True)
 
     class Meta:
         ordering = ['-created']
-    
+
     def __str__(self):
         return self.title
-    
+
+
 class Module(models.Model):
 
     course = models.ForeignKey(Course,
@@ -45,19 +50,20 @@ class Module(models.Model):
 
     def __str__(self):
         return f'{self.order}. {self.title}'
-    
+
     class Meta:
         ordering = ['order']
+
 
 class Content(models.Model):
     module = models.ForeignKey(Module,
                                related_name='contents',
                                on_delete=models.CASCADE,
-                               limit_choices_to={'model__in':(
-                                                'text',
-                                                'video',
-                                                'image',
-                                                'file')})
+                               limit_choices_to={'model__in': (
+                                   'text',
+                                   'video',
+                                   'image',
+                                   'file')})
     content_type = models.ForeignKey(ContentType,
                                      on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -66,6 +72,7 @@ class Content(models.Model):
 
     class Meta:
         ordering = ['order']
+
 
 class ItemBase(models.Model):
     owner = models.ForeignKey(User,
@@ -81,15 +88,18 @@ class ItemBase(models.Model):
     def __str__(self):
         return self.title
 
+
 class Text(ItemBase):
     content = models.TextField()
+
 
 class File(ItemBase):
     file = models.FileField(upload_to='files')
 
+
 class Image(ItemBase):
     file = models.FileField(upload_to='images')
 
+
 class Video(ItemBase):
     url = models.URLField()
-
