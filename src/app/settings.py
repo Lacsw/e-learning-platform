@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     #3d-party app
     'embed_video',
     'rest_framework',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -138,3 +139,5 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
     ]
 }
+
+ASGI_APPLICATION = 'app.routing.application'
