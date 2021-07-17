@@ -12,6 +12,7 @@
 {% endblock %}
 
 {% block domready %}
+<!--JS для чата с вебсокетом и channel layer-->
   var url = 'ws://' + window.location.host +
             '/ws/chat/room/' + '{{ course.id }}/';
   var chatSocket = new WebSocket(url);
